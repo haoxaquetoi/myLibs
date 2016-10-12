@@ -1,14 +1,4 @@
 <?php
-
-$url = "http://mdm.bacgiang.gov.vn/ContentFolder/HoSoFileDinhKem/source_files/2016/10/04/17235373_QĐ_GQ_16-10-04.docx";
-$arrExt = array('xlsx', 'pdf', 'png', 'Docx');
-
-$instance = new downloadAttachments();
-$instance->init($arrExt, null, null);
-
-$instance->download($url, __DIR__);
-$instance->download($url, __DIR__);
-
 /**
  * Tải tập tin từ link url online
  */
