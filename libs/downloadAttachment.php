@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Tải tập tin từ link url online
  */
-class downloadAttachment
+class transferFile
 {
 
     /**
@@ -65,8 +66,12 @@ class downloadAttachment
      */
     protected $minFileSize = 0;
 
+ 
+
     function __construct()
     {
+        header('Content-Type: text/event-stream');
+        header('Cache-Control: no-cache');
         set_time_limit(0);
     }
 
@@ -97,11 +102,12 @@ class downloadAttachment
      * @param type $fileNameNew Tên mới
      * @return \stdClass
      */
-    function download($linkFile, $dirSaveFile, $fileNameNew = '')
+    function downloadFile($linkFile, $dirSaveFile, $fileNameNew = '')
     {
         $this->linkFile = $linkFile;
         $this->dirSaveFile = $dirSaveFile;
-        $this->fileNameNew = ($fileNameNew != '') ? $fileNameNew : uniqid() . '-' . date('ymdhis');
+
+        $this->fileNameNew = $fileNameNew;
 
         $this->_checkFileExists();
 
@@ -115,7 +121,7 @@ class downloadAttachment
             $this->_checkDir();
 
         if (empty($this->errMsg))
-            $this->_getFileContent();
+            $this->_downloadFile();
 
         $resp = new stdClass();
         if (empty($this->errMsg))
@@ -148,6 +154,9 @@ class downloadAttachment
         }
         $this->linkFile = implode('/', $arrInfoLink);
         @$head = array_change_key_case(get_headers($this->linkFile, TRUE));
+
+
+
         if (!$head OR $head[0] == 'HTTP/1.0 404 Not Found')
         {
             $this->errMsg = 'Đường dẫn tập tin không hợp lệ';
@@ -156,7 +165,6 @@ class downloadAttachment
         {
             $this->fileSize = $head['content-length'];
         }
-
         return $this;
     }
 
@@ -207,20 +215,46 @@ class downloadAttachment
 
     /**
      * Lưu tập tin về thư mục
+     * @param boolean $chkRate TRUE - Kiểm tra % download, FALSE: Không check
      */
-    private function _getFileContent()
+    private function _downloadFile($chkRate = FALSE)
     {
-        $file = @file_get_contents($this->linkFile);
-        if ($file === FALSE)
+        $newfname = $this->dirSaveFile . DIRECTORY_SEPARATOR . $this->fileNameNew . '.' . $this->fileExt;
+        $file = fopen($this->linkFile, "rb");
+        if ($file)
         {
-            $this->errMsg = 'Xảy ra lỗi trong quá trình tải tập tin';
-            return $this;
+            $newf = fopen($newfname, "wb");
+            if ($newf)
+            {
+                while (!feof($file))
+                {
+                    fwrite($newf, fread($file, 1024 * 8), 1024 * 8);
+                    //echo "1MB File Chunk Written! ,<br/>";
+                }
+            }
         }
-        $fileSizePush = file_put_contents($this->dirSaveFile . DIRECTORY_SEPARATOR . $this->fileNameNew . '.' . $this->fileExt, $file);
-        if ($fileSizePush == FALSE || $fileSizePush != $this->fileSize)
+
+        if ($file)
+            fclose($file);
+
+        if ($newf)
+            fclose($newf);
+
+        if ($this->fileSize != filesize($newfname))
         {
+            unlink($newfname);
             $this->errMsg = 'Xảy ra lỗi trong quá trình tải tập tin';
+            return FALSE;
         }
+        return TRUE;
     }
 
 }
+
+
+/* 
+Example:
+$transferFile = new transferFile();
+var_dump($transferFile->init(array('7z'), NULL, NULL, TRUE)
+                ->downloadFile('http://localhost/mot-cua/mot-cua.7z', 'D:\Zend\www\research\newfileNew.7z','abc'));
+
